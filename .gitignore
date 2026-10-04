@@ -3,3 +3,10 @@ cookies/
 resultat/
 sanger/
 __pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+.env
+.pytest_cache/
