@@ -56,12 +56,55 @@ def ffmpeg_is_usable():
 
 
 def get_js_runtimes_for_ytdlp():
-    """Pick JS runtimes yt-dlp needs for YouTube (2026+)."""
+    """Return explicitly available JavaScript runtimes for yt-dlp EJS."""
     runtimes = {}
-    for name in ("deno", "node", "bun"):
+    # Deno is the recommended runtime; Node and QuickJS are useful fallbacks.
+    for name in ("deno", "node", "quickjs", "qjs", "bun"):
         if shutil.which(name):
-            runtimes[name] = {}
+            key = "quickjs" if name == "qjs" else name
+            runtimes[key] = {}
     return runtimes
+
+
+def safe_output_stem(name: str, fallback: str = "studio_pro_klipp") -> str:
+    """Create a Windows-safe, readable output filename stem."""
+    value = (name or "").strip()
+    value = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", value)
+    value = re.sub(r"\s+", " ", value).strip(" .")
+    if not value:
+        value = fallback
+    # Windows device names are not safe as standalone filenames.
+    if value.upper().split(".")[0] in {"CON", "PRN", "AUX", "NUL"}:
+        value = f"_{value}_"
+    return value[:180]
+
+
+def build_atempo_chain(speed: float) -> list:
+    """Build valid FFmpeg atempo filters for any practical playback speed."""
+    speed = max(0.05, float(speed))
+    filters = []
+    while speed < 0.5:
+        filters.append("atempo=0.5")
+        speed /= 0.5
+    while speed > 2.0:
+        filters.append("atempo=2.0")
+        speed /= 2.0
+    filters.append(f"atempo={speed:.6f}")
+    return filters
+
+
+def escape_drawtext(text: str) -> str:
+    """Escape common FFmpeg drawtext filter separators."""
+    return (
+        str(text)
+        .replace("\\", "\\\\")
+        .replace("'", "\\'")
+        .replace(":", "\\:")
+        .replace(",", "\\,")
+        .replace("%", "\\%")
+        .replace("[", "\\[")
+        .replace("]", "\\]")
+    )
 
 
 def build_ytdlp_options(
@@ -79,9 +122,9 @@ def build_ytdlp_options(
         "merge_output_format": "mp4",
         "noprogress": True,
         "quiet": True,
-        "extractor_args": {
-            "youtube": {"player_client": ["tv", "android", "ios", "web", "mweb"]},
-        },
+        "continuedl": True,
+        "overwrites": False,
+        "noplaylist": False,
     }
     if ffmpeg_bin:
         opts["ffmpeg_location"] = ffmpeg_bin
@@ -705,12 +748,16 @@ class StudioProMasterSuite(QMainWindow):
         self.setAcceptDrops(True)
 
         self.tabs = QTabWidget()
-        self.setCentralWidget(self.tabs)
+        self.tabs.setDocumentMode(True)
+        self.tabs.setMovable(False)
+        self._build_main_shell()
 
         self.init_editor_tab()
         self.init_downloader_tab()
         self.init_info_tab()
 
+        self.restore_editor_preferences()
+        self.install_app_shortcuts()
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
         QTimer.singleShot(100, self.check_environment)
@@ -915,7 +962,341 @@ class StudioProMasterSuite(QMainWindow):
             QScrollBar::handle:vertical:hover {
                 background: #475569;
             }
+
+            /* V4 application chrome */
+            QFrame#appHeader {
+                background: rgba(15, 23, 42, 0.92);
+                border-bottom: 1px solid rgba(255,255,255,0.08);
+            }
+            QLabel#appTitle {
+                color: #f8fafc;
+                font-size: 18px;
+                font-weight: 850;
+            }
+            QLabel#appSubtitle {
+                color: #64748b;
+                font-size: 11px;
+            }
+            QLabel#headerState {
+                color: #a5b4fc;
+                background: rgba(99,102,241,0.12);
+                border: 1px solid rgba(129,140,248,0.2);
+                border-radius: 10px;
+                padding: 5px 10px;
+                font-size: 11px;
+                font-weight: 700;
+            }
+            QPushButton#headerBtn {
+                background: #111827;
+                border: 1px solid #334155;
+                color: #cbd5e1;
+                padding: 7px 12px;
+                border-radius: 8px;
+                font-size: 12px;
+            }
+            QPushButton#headerBtn:hover {
+                background: #1e293b;
+                color: #ffffff;
+                border-color: #475569;
+            }
+            QStatusBar#appStatusBar {
+                background: #0b1120;
+                color: #94a3b8;
+                border-top: 1px solid rgba(255,255,255,0.06);
+                font-size: 11px;
+            }
+            QTabWidget::tab-bar {
+                left: 8px;
+            }
         """)
+
+    def _build_main_shell(self):
+        """Build the V4 application shell around the existing editor/downloader tabs."""
+        shell = QWidget()
+        shell.setObjectName("appShell")
+        root = QVBoxLayout(shell)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
+
+        header = QFrame()
+        header.setObjectName("appHeader")
+        header.setFixedHeight(64)
+        header_layout = QHBoxLayout(header)
+        header_layout.setContentsMargins(18, 8, 18, 8)
+        header_layout.setSpacing(8)
+
+        brand = QVBoxLayout()
+        brand.setSpacing(0)
+        title = QLabel("Studio Pro")
+        title.setObjectName("appTitle")
+        subtitle = QLabel("Rediger  •  Last ned  •  Render")
+        subtitle.setObjectName("appSubtitle")
+        brand.addWidget(title)
+        brand.addWidget(subtitle)
+        header_layout.addLayout(brand)
+        header_layout.addSpacing(14)
+
+        self.lbl_header_state = QLabel("Starter …")
+        self.lbl_header_state.setObjectName("headerState")
+        header_layout.addWidget(self.lbl_header_state)
+        header_layout.addStretch()
+
+        self.btn_header_open = QPushButton("📁 Åpne")
+        self.btn_header_open.setObjectName("headerBtn")
+        self.btn_header_open.setToolTip("Åpne mediefil (Ctrl+O)")
+        self.btn_header_open.clicked.connect(self.import_file)
+
+        self.btn_header_output = QPushButton("📂 Output")
+        self.btn_header_output.setObjectName("headerBtn")
+        self.btn_header_output.setToolTip("Åpne output-mappen")
+        self.btn_header_output.clicked.connect(self.open_download_folder)
+
+        self.btn_header_settings = QPushButton("⚙ Innstillinger")
+        self.btn_header_settings.setObjectName("headerBtn")
+        self.btn_header_settings.clicked.connect(self.show_settings_dialog)
+
+        self.btn_header_focus = QPushButton("🖥 Fokus")
+        self.btn_header_focus.setObjectName("headerBtn")
+        self.btn_header_focus.setToolTip("Fullskjerm / fokusmodus (F11)")
+        self.btn_header_focus.clicked.connect(self.toggle_fullscreen)
+
+        for btn in (
+            self.btn_header_open,
+            self.btn_header_output,
+            self.btn_header_settings,
+            self.btn_header_focus,
+        ):
+            header_layout.addWidget(btn)
+
+        root.addWidget(header)
+        root.addWidget(self.tabs, 1)
+
+        self.setCentralWidget(shell)
+        status_bar = self.statusBar()
+        status_bar.setObjectName("appStatusBar")
+        status_bar.showMessage("Klar.")
+
+    def _set_app_status(self, message: str):
+        """Keep the header status pill and status bar synchronized."""
+        if hasattr(self, "lbl_header_state"):
+            self.lbl_header_state.setText(message)
+        self.statusBar().showMessage(message)
+
+    def show_settings_dialog(self):
+        """Compact preferences dialog for the settings that matter most."""
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Studio Pro – Innstillinger")
+        dlg.setMinimumWidth(560)
+
+        layout = QVBoxLayout(dlg)
+        title = QLabel("⚙ Innstillinger")
+        title.setProperty("heading", True)
+        layout.addWidget(title)
+
+        form = QFormLayout()
+        out_edit = QLineEdit(self.custom_download_dir or str(DEFAULT_SANGER_DIR))
+        out_edit.setPlaceholderText("Standard: prosjektmappen / sanger")
+        out_row = QHBoxLayout()
+        out_row.addWidget(out_edit, 1)
+        browse = QPushButton("📁 Velg")
+        browse.setObjectName("secondaryBtn")
+        browse.clicked.connect(
+            lambda: self._choose_settings_output_folder(out_edit)
+        )
+        out_row.addWidget(browse)
+        form.addRow("Nedlastingsmappe:", out_row)
+
+        auto_editor = QCheckBox("Åpne siste nedlasting automatisk i editor")
+        auto_editor.setChecked(
+            getattr(self, "chk_auto_editor", None) and self.chk_auto_editor.isChecked()
+        )
+
+        clipboard = QCheckBox("Overvåk utklippstavlen etter URL-er")
+        clipboard.setChecked(
+            getattr(self, "chk_clipboard_watch", None) and self.chk_clipboard_watch.isChecked()
+        )
+
+        exported = QCheckBox("Bruk eksporterte YouTube-kapsler automatisk")
+        exported.setChecked(
+            getattr(self, "chk_auto_exported_cookies", None)
+            and self.chk_auto_exported_cookies.isChecked()
+        )
+
+        form.addRow("", auto_editor)
+        form.addRow("", clipboard)
+        form.addRow("", exported)
+        layout.addLayout(form)
+
+        hint = QLabel(
+            "Tips: Videoeksport beholdes lokalt i «resultat/», mens nedlastinger "
+            "går til valgt mappe. Cookie-filer lagres separat og skal holdes private."
+        )
+        hint.setWordWrap(True)
+        hint.setStyleSheet("color: #94a3b8; padding: 8px 0;")
+        layout.addWidget(hint)
+
+        buttons = QHBoxLayout()
+        reset = QPushButton("↺ Gjenopprett standard")
+        reset.setObjectName("secondaryBtn")
+        save = QPushButton("💾 Lagre")
+        save.setObjectName("accentBtn")
+        cancel = QPushButton("Avbryt")
+        cancel.setObjectName("secondaryBtn")
+        buttons.addWidget(reset)
+        buttons.addStretch()
+        buttons.addWidget(cancel)
+        buttons.addWidget(save)
+        layout.addLayout(buttons)
+
+        def reset_defaults():
+            out_edit.setText(str(DEFAULT_SANGER_DIR))
+            auto_editor.setChecked(False)
+            clipboard.setChecked(False)
+            exported.setChecked(True)
+
+        def apply():
+            selected = out_edit.text().strip()
+            if selected and not os.path.isdir(selected):
+                try:
+                    os.makedirs(selected, exist_ok=True)
+                except OSError as exc:
+                    QMessageBox.critical(dlg, "Kunne ikke opprette mappe", str(exc))
+                    return
+
+            self.custom_download_dir = selected if selected != str(DEFAULT_SANGER_DIR) else ""
+            self.settings.setValue("downloadDir", self.custom_download_dir)
+            self.settings.setValue("autoOpenEditor", auto_editor.isChecked())
+            self.settings.setValue("clipboardWatch", clipboard.isChecked())
+            self.settings.setValue("autoExportedCookies", exported.isChecked())
+
+            if hasattr(self, "chk_auto_editor"):
+                self.chk_auto_editor.blockSignals(True)
+                self.chk_auto_editor.setChecked(auto_editor.isChecked())
+                self.chk_auto_editor.blockSignals(False)
+            if hasattr(self, "chk_auto_exported_cookies"):
+                self.chk_auto_exported_cookies.blockSignals(True)
+                self.chk_auto_exported_cookies.setChecked(exported.isChecked())
+                self.chk_auto_exported_cookies.blockSignals(False)
+            if hasattr(self, "chk_clipboard_watch"):
+                self.chk_clipboard_watch.setChecked(clipboard.isChecked())
+            if hasattr(self, "lbl_outdir"):
+                self.lbl_outdir.setText(f"Lagres i: {self.get_download_output_dir()}")
+            self._save_dl_prefs()
+            self._toggle_clipboard_watch()
+            self._set_app_status("Innstillinger lagret.")
+            dlg.accept()
+
+        reset.clicked.connect(reset_defaults)
+        save.clicked.connect(apply)
+        cancel.clicked.connect(dlg.reject)
+        dlg.exec()
+
+    def _choose_settings_output_folder(self, edit):
+        folder = QFileDialog.getExistingDirectory(
+            self,
+            "Velg nedlastingsmappe",
+            edit.text().strip() or str(DEFAULT_SANGER_DIR),
+        )
+        if folder:
+            edit.setText(folder)
+
+    def install_app_shortcuts(self):
+        """Application-wide shortcuts that remain useful outside the video viewport."""
+        shortcuts = [
+            (QKeySequence("Ctrl+O"), self.import_file),
+            (QKeySequence("Ctrl+Shift+O"), self.show_recent_files_menu),
+            (QKeySequence("Ctrl+B"), self.add_current_time_bookmark),
+            (QKeySequence("Ctrl+Shift+S"), self.take_snapshot),
+            (QKeySequence("F11"), self.toggle_fullscreen),
+        ]
+        self._app_actions = []
+        for sequence, callback in shortcuts:
+            action = QAction(self)
+            action.setShortcut(sequence)
+            action.triggered.connect(callback)
+            self.addAction(action)
+            self._app_actions.append(action)
+
+    def restore_editor_preferences(self):
+        """Restore non-destructive editor preferences saved in QSettings."""
+        if not hasattr(self, "combo_speed"):
+            return
+        self.combo_speed.setCurrentText(self.settings.value("speed", "1.0x"))
+        self.combo_res.setCurrentIndex(
+            int(self.settings.value("resolution", 0, type=int))
+        )
+        self.combo_format.setCurrentIndex(
+            int(self.settings.value("renderFormat", 0, type=int))
+        )
+        self.spin_volume_boost.setValue(
+            int(self.settings.value("volumeBoost", 100, type=int))
+        )
+        self.slider_brightness.setValue(
+            int(self.settings.value("brightness", 0, type=int))
+        )
+        self.slider_contrast.setValue(
+            int(self.settings.value("contrast", 100, type=int))
+        )
+        self.slider_saturation.setValue(
+            int(self.settings.value("saturation", 100, type=int))
+        )
+        if hasattr(self, "chk_overwrite_output"):
+            self.chk_overwrite_output.setChecked(
+                self.settings.value("overwriteOutput", False, type=bool)
+            )
+        QTimer.singleShot(0, self._restore_editor_splitter)
+
+    def save_editor_preferences(self):
+        """Persist the current editor choices so reopening the app feels continuous."""
+        if not hasattr(self, "combo_speed"):
+            return
+        self.settings.setValue("speed", self.combo_speed.currentText())
+        self.settings.setValue("resolution", self.combo_res.currentIndex())
+        self.settings.setValue("renderFormat", self.combo_format.currentIndex())
+        self.settings.setValue("volumeBoost", self.spin_volume_boost.value())
+        self.settings.setValue("brightness", self.slider_brightness.value())
+        self.settings.setValue("contrast", self.slider_contrast.value())
+        self.settings.setValue("saturation", self.slider_saturation.value())
+        self.settings.setValue("overwriteOutput", self.chk_overwrite_output.isChecked())
+        if hasattr(self, "editor_splitter"):
+            self.settings.setValue("editorSplitter", self.editor_splitter.sizes())
+
+    def closeEvent(self, event):
+        """Stop background workers cleanly before the application exits."""
+        self.save_editor_preferences()
+        self._save_dl_prefs()
+        if hasattr(self, "editor_splitter"):
+            self.settings.setValue("editorSplitter", self.editor_splitter.sizes())
+
+        for worker_name in (
+            "dl_worker",
+            "cookie_worker",
+            "info_worker",
+            "worker",
+        ):
+            worker = getattr(self, worker_name, None)
+            if worker is None or not hasattr(worker, "isRunning") or not worker.isRunning():
+                continue
+            if hasattr(worker, "cancel"):
+                worker.cancel()
+            worker.quit()
+            if not worker.wait(2500):
+                try:
+                    worker.terminate()
+                    worker.wait(1000)
+                except Exception:
+                    pass
+
+        self.media_player.stop()
+        event.accept()
+
+    def _restore_editor_splitter(self):
+        saved = self.settings.value("editorSplitter", [])
+        if isinstance(saved, list) and len(saved) == 2:
+            try:
+                self.editor_splitter.setSizes([int(saved[0]), int(saved[1])])
+            except (TypeError, ValueError):
+                pass
 
     def check_environment(self):
         ffmpeg_bin = get_ffmpeg_exe()
@@ -946,8 +1327,11 @@ class StudioProMasterSuite(QMainWindow):
         else:
             status_msg.append("ℹ️ spotdl valgfritt")
 
-        self.lbl_spotify_status.setText(" | ".join(status_msg))
+        env_summary = " | ".join(status_msg)
+        self.lbl_spotify_status.setText(env_summary)
         self.btn_install_deps.setEnabled(not (ytdlp_ok and ffmpeg_is_usable()))
+        ready = "✅ Klar" if (ytdlp_ok and ffmpeg_is_usable()) else "⚠ Sjekk"
+        self._set_app_status(f"{ready}  •  FFmpeg {'OK' if ffmpeg_is_usable() else 'mangler'}")
 
     def init_editor_tab(self):
         editor_widget = QWidget()
@@ -1113,7 +1497,11 @@ class StudioProMasterSuite(QMainWindow):
         exp_box.addWidget(self.combo_format)
 
         self.txt_name = QLineEdit("studio_pro_klipp")
+        self.txt_name.setPlaceholderText("Filnavn uten filendelse")
         exp_box.addWidget(self.txt_name)
+
+        self.chk_overwrite_output = QCheckBox("Overskriv eksisterende fil")
+        exp_box.addWidget(self.chk_overwrite_output)
 
         self.btn_render = QPushButton("⚡ Start Rendering!")
         self.btn_render.setObjectName("accentBtn")
@@ -1556,6 +1944,10 @@ class StudioProMasterSuite(QMainWindow):
             ("F / F11 / Dobbelklikk", "Bytt fullskjermvisning"),
             ("Escape (Esc)", "Avslutt fullskjermvisning"),
             ("Ctrl + O", "Åpne ny mediefil"),
+            ("Ctrl + Shift + O", "Åpne nylige filer"),
+            ("Ctrl + B", "Lagre bokmerke på gjeldende tidspunkt"),
+            ("Ctrl + Shift + S", "Ta skjermbilde fra gjeldende videobilde"),
+            ("Shift + ← / →", "Spol 5 sekunder"),
         ]
         for key, desc in shortcuts:
             row = QHBoxLayout()
@@ -1819,7 +2211,7 @@ class StudioProMasterSuite(QMainWindow):
 
     def install_missing_dependencies(self):
         self.btn_install_deps.setEnabled(False)
-        self.lbl_dl_status.setText("⏳ Installerer yt-dlp og imageio-ffmpeg …")
+        self.lbl_dl_status.setText("⏳ Installerer yt-dlp + EJS-støtte, imageio-ffmpeg og spotdl …")
         QApplication.processEvents()
         try:
             subprocess.run(
@@ -1916,6 +2308,7 @@ class StudioProMasterSuite(QMainWindow):
 
         # Set media source
         self.media_player.setSource(QUrl.fromLocalFile(path))
+        self._set_app_status(f"🎬 Åpnet: {Path(path).name}")
 
         self.btn_play.setEnabled(True)
         self.btn_render.setEnabled(True)
@@ -1939,9 +2332,12 @@ class StudioProMasterSuite(QMainWindow):
             self.btn_play.setText("⏸ Pause")
 
     def change_live_speed(self):
-        speed_str = self.combo_speed.currentText().replace('x', '')
-        rate = float(speed_str)
-        self.media_player.setPlaybackRate(rate)
+        try:
+            rate = float(self.combo_speed.currentText().replace("x", ""))
+        except (TypeError, ValueError):
+            rate = 1.0
+        self.media_player.setPlaybackRate(max(0.05, rate))
+        self._set_app_status(f"▶ Avspillingshastighet: {rate:g}x")
 
     def scrub_timeline(self, position):
         self.media_player.setPosition(position)
@@ -2096,7 +2492,7 @@ class StudioProMasterSuite(QMainWindow):
 
         start = self.spin_start.value()
         end = self.spin_end.value()
-        out_name = self.txt_name.text().strip() or "studio_pro_klipp"
+        out_name = safe_output_stem(self.txt_name.text())
         format_idx = self.combo_format.currentIndex()
 
         ext_map = [".mp4", ".webm", ".mkv", ".mov", ".gif",
@@ -2106,7 +2502,17 @@ class StudioProMasterSuite(QMainWindow):
         project_dir = Path(__file__).parent
         out_dir = project_dir / "resultat"
         os.makedirs(out_dir, exist_ok=True)
-        output_path = str(out_dir / f"{out_name}{out_ext}")
+
+        overwrite = self.chk_overwrite_output.isChecked()
+        candidate = out_dir / f"{out_name}{out_ext}"
+        if candidate.exists() and not overwrite:
+            n = 2
+            while True:
+                candidate = out_dir / f"{out_name}_{n}{out_ext}"
+                if not candidate.exists():
+                    break
+                n += 1
+        output_path = str(candidate)
 
         ffmpeg_bin = get_ffmpeg_exe()
         if not ffmpeg_bin:
@@ -2115,7 +2521,7 @@ class StudioProMasterSuite(QMainWindow):
                 f"FFmpeg ble ikke funnet.\n\nInstaller med:\n{sys.executable} -m pip install imageio-ffmpeg",
             )
             return
-        cmd = [ffmpeg_bin, "-y", "-i", self.video_path]
+        cmd = [ffmpeg_bin, "-y" if overwrite else "-n", "-i", self.video_path]
 
         total_dur = (end - start) if end > start else (self.duration_ms / 1000.0 - start)
         total_dur = max(0.1, total_dur)
@@ -2148,7 +2554,7 @@ class StudioProMasterSuite(QMainWindow):
         if wm_text:
             pos_idx = self.combo_wm_pos.currentIndex()
             font_size = self.spin_wm_size.value()
-            escaped_text = wm_text.replace("'", "").replace(":", "\\:")
+            escaped_text = escape_drawtext(wm_text)
             pos_coords = "x=w-tw-20:y=h-th-20"  # bottom right
             if pos_idx == 1:
                 pos_coords = "x=20:y=h-th-20"    # bottom left
@@ -2172,7 +2578,7 @@ class StudioProMasterSuite(QMainWindow):
         speed = float(self.combo_speed.currentText().replace('x', ''))
         if speed != 1.0:
             video_filters.append(f"setpts={1.0/speed}*PTS")
-            audio_filters.append(f"atempo={speed}")
+            audio_filters.extend(build_atempo_chain(speed))
 
         # Audio Volume Boost
         vol_boost = self.spin_volume_boost.value()
@@ -2208,6 +2614,8 @@ class StudioProMasterSuite(QMainWindow):
                 cmd += ["-c:v", "libvpx-vp9", "-crf", "30", "-b:v", "0", "-c:a", "libopus"]
             else:  # MP4 / MKV / MOV
                 cmd += ["-c:v", "libx264", "-crf", "18", "-preset", "medium", "-c:a", "aac", "-b:a", "192k"]
+                if format_idx in (0, 3):
+                    cmd += ["-movflags", "+faststart"]
         else:  # Audio Only Export
             if audio_filters:
                 cmd += ["-af", ",".join(audio_filters)]
@@ -2454,9 +2862,11 @@ class StudioProMasterSuite(QMainWindow):
         if event.key() == Qt.Key.Key_Space:
             self.toggle_playback()
         elif event.key() == Qt.Key.Key_Left:
-            self.scrub_timeline(max(0, self.media_player.position() - 1000))
+            step = 5000 if event.modifiers() & Qt.KeyboardModifier.Shift else 1000
+            self.scrub_timeline(max(0, self.media_player.position() - step))
         elif event.key() == Qt.Key.Key_Right:
-            self.scrub_timeline(min(self.duration_ms, self.media_player.position() + 1000))
+            step = 5000 if event.modifiers() & Qt.KeyboardModifier.Shift else 1000
+            self.scrub_timeline(min(self.duration_ms, self.media_player.position() + step))
         elif event.matches(QKeySequence.StandardKey.Open):
             self.import_file()
         else:
