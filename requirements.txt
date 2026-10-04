@@ -1,0 +1,4 @@
+PyQt6>=6.6
+opencv-python-headless>=4.8
+yt-dlp>=2024.1
+imageio-ffmpeg>=0.5
