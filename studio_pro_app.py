@@ -755,6 +755,7 @@ class StudioProMasterSuite(QMainWindow):
         self.init_editor_tab()
         self.init_downloader_tab()
         self.init_info_tab()
+        self._update_page_header(self.tabs.currentIndex())
 
         self.restore_editor_preferences()
         self.install_app_shortcuts()
@@ -766,315 +767,443 @@ class StudioProMasterSuite(QMainWindow):
             QTimer.singleShot(200, lambda: self.load_target_asset(sys.argv[1]))
 
     def setup_stylesheet(self):
+        """Studio Pro V5 visual system: restrained, professional, and consistent."""
         self.setStyleSheet("""
-            /* Main Window & Core Styling */
+            * { font-family: "Segoe UI", "Inter", sans-serif; }
+
             QMainWindow, QWidget {
-                background-color: #08090d;
-                color: #e2e8f0;
-                font-family: "Segoe UI", "Inter", -apple-system, sans-serif;
+                background: #0b0e13;
+                color: #e7eaf0;
             }
-            QMainWindow {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #0f172a, stop:0.5 #08090d, stop:1 #1e1b4b);
-            }
-
-            /* Tab Navigation */
-            QTabWidget::pane {
-                border: 1px solid rgba(255, 255, 255, 0.08);
-                background: rgba(15, 23, 42, 0.65);
-                border-radius: 14px;
-            }
-            QTabBar::tab {
-                background: rgba(30, 41, 59, 0.7);
-                border: 1px solid rgba(255, 255, 255, 0.08);
-                padding: 12px 26px;
-                font-weight: 600;
-                font-size: 13px;
-                color: #94a3b8;
-                border-top-left-radius: 12px;
-                border-top-right-radius: 12px;
-                margin-right: 4px;
-            }
-            QTabBar::tab:hover {
-                background: rgba(51, 65, 85, 0.8);
-                color: #f1f5f9;
-            }
-            QTabBar::tab:selected {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #6366f1, stop:1 #a855f7);
-                color: #ffffff;
-                border: none;
-            }
-
-            /* Buttons */
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #6366f1, stop:1 #8b5cf6);
-                color: #ffffff;
-                border: none;
-                padding: 10px 18px;
-                border-radius: 10px;
-                font-weight: 600;
-                font-size: 13px;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #4f46e5, stop:1 #7c3aed);
-            }
-            QPushButton:pressed {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #4338ca, stop:1 #6d28d9);
-            }
-            QPushButton:disabled {
-                background: #1e293b;
-                color: #64748b;
-            }
-            QPushButton#secondaryBtn {
-                background: #1e293b;
-                border: 1px solid #334155;
-                color: #cbd5e1;
-            }
-            QPushButton#secondaryBtn:hover {
-                background: #334155;
-                color: #ffffff;
-            }
-            QPushButton#accentBtn {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #10b981, stop:1 #06b6d4);
-                color: #ffffff;
-                font-weight: 700;
-            }
-            QPushButton#accentBtn:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #059669, stop:1 #0891b2);
-            }
-
-            /* Inputs & Controls */
-            QDoubleSpinBox, QSpinBox, QComboBox, QLineEdit, QListWidget, QTextEdit {
-                background: rgba(15, 23, 42, 0.9);
-                border: 1px solid rgba(255, 255, 255, 0.12);
+            QToolTip {
+                background: #171b23;
                 color: #f8fafc;
-                padding: 8px 12px;
-                border-radius: 8px;
-                font-size: 13px;
-                selection-background-color: #6366f1;
-            }
-            QDoubleSpinBox:focus, QSpinBox:focus, QComboBox:focus, QLineEdit:focus, QTextEdit:focus {
-                border: 1px solid #818cf8;
-            }
-            QComboBox QAbstractItemView {
-                background: #0f172a;
-                border: 1px solid #334155;
-                border-radius: 8px;
-                selection-background-color: #6366f1;
-                color: #f8fafc;
-            }
-
-            /* Lists */
-            QListWidget::item {
-                padding: 8px 12px;
-                border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+                border: 1px solid #303746;
+                padding: 6px 8px;
                 border-radius: 6px;
-            }
-            QListWidget::item:hover {
-                background: rgba(99, 102, 241, 0.2);
-            }
-            QListWidget::item:selected {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #6366f1, stop:1 #8b5cf6);
-                color: #ffffff;
+                font-size: 10px;
             }
 
-            /* Sliders */
-            QSlider::groove:horizontal {
-                height: 6px;
-                background: #1e293b;
-                border-radius: 3px;
+            QFrame#sidebar {
+                background: #0f1218;
+                border-right: 1px solid #242a34;
             }
-            QSlider::handle:horizontal {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #818cf8, stop:1 #c084fc);
-                width: 18px;
-                margin: -6px 0;
-                border-radius: 9px;
-            }
-            QSlider::sub-page:horizontal {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #6366f1, stop:1 #a855f7);
-                border-radius: 3px;
-            }
-
-            /* Progress Bar */
-            QProgressBar {
-                background: #1e293b;
-                border: none;
-                border-radius: 8px;
-                height: 20px;
-                text-align: center;
-                color: #ffffff;
-                font-weight: 700;
-                font-size: 12px;
-            }
-            QProgressBar::chunk {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #10b981, stop:1 #3b82f6);
-                border-radius: 8px;
-            }
-
-            /* Labels & Groupboxes */
-            QLabel {
-                color: #cbd5e1;
-                font-size: 13px;
-            }
-            QLabel[heading="true"] {
-                font-size: 20px;
-                font-weight: 800;
-                color: #f8fafc;
-            }
-            QGroupBox {
-                border: 1px solid rgba(255, 255, 255, 0.08);
-                border-radius: 12px;
-                margin-top: 14px;
-                padding-top: 10px;
-                background: rgba(15, 23, 42, 0.4);
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 14px;
-                padding: 0 6px;
-                color: #818cf8;
-                font-weight: 700;
-            }
-            QScrollArea {
-                border: none;
-                background: transparent;
-            }
-            QScrollBar:vertical {
-                background: #0f172a;
-                width: 8px;
-                border-radius: 4px;
-            }
-            QScrollBar::handle:vertical {
-                background: #334155;
-                border-radius: 4px;
-                min-height: 25px;
-            }
-            QScrollBar::handle:vertical:hover {
-                background: #475569;
-            }
-
-            /* V4 application chrome */
             QFrame#appHeader {
-                background: rgba(15, 23, 42, 0.92);
-                border-bottom: 1px solid rgba(255,255,255,0.08);
+                background: #0d1016;
+                border-bottom: 1px solid #242a34;
             }
-            QLabel#appTitle {
+            QLabel#brandTitle {
                 color: #f8fafc;
                 font-size: 18px;
-                font-weight: 850;
+                font-weight: 800;
             }
-            QLabel#appSubtitle {
-                color: #64748b;
+            QLabel#brandTagline {
+                color: #626d7c;
+                font-size: 9px;
+                font-weight: 700;
+                letter-spacing: 1px;
+            }
+            QLabel#pageTitle {
+                color: #f8fafc;
+                font-size: 20px;
+                font-weight: 800;
+            }
+            QLabel#pageSubtitle {
+                color: #707b8b;
                 font-size: 11px;
             }
             QLabel#headerState {
-                color: #a5b4fc;
-                background: rgba(99,102,241,0.12);
-                border: 1px solid rgba(129,140,248,0.2);
-                border-radius: 10px;
-                padding: 5px 10px;
-                font-size: 11px;
+                background: #151a22;
+                color: #aab4c4;
+                border: 1px solid #2a313e;
+                border-radius: 8px;
+                padding: 6px 9px;
+                font-size: 10px;
                 font-weight: 700;
             }
-            QPushButton#headerBtn {
-                background: #111827;
-                border: 1px solid #334155;
-                color: #cbd5e1;
-                padding: 7px 12px;
+            QLabel#sidebarSection {
+                color: #586273;
+                font-size: 9px;
+                font-weight: 800;
+                padding: 4px 12px;
+            }
+            QLabel#sidebarFooter {
+                color: #586273;
+                font-size: 9px;
+            }
+
+            QPushButton#navBtn {
+                background: transparent;
+                color: #8c97a8;
+                border: 1px solid transparent;
                 border-radius: 8px;
+                text-align: left;
+                padding: 10px 12px;
                 font-size: 12px;
+                font-weight: 650;
+            }
+            QPushButton#navBtn:hover {
+                background: #151a22;
+                color: #f2f5fa;
+            }
+            QPushButton#navBtn:checked {
+                background: #1a202a;
+                color: #ffffff;
+                border: 1px solid #2d3745;
+            }
+            QPushButton#headerBtn {
+                background: #12161d;
+                color: #9ea8b7;
+                border: 1px solid #292f3a;
+                border-radius: 8px;
+                padding: 7px 10px;
+                font-size: 11px;
+                font-weight: 650;
             }
             QPushButton#headerBtn:hover {
-                background: #1e293b;
+                background: #191e27;
                 color: #ffffff;
-                border-color: #475569;
+                border-color: #3a4454;
             }
-            QStatusBar#appStatusBar {
-                background: #0b1120;
-                color: #94a3b8;
-                border-top: 1px solid rgba(255,255,255,0.06);
+
+            QTabWidget { background: #0b0e13; border: none; }
+            QTabWidget::pane { border: none; background: #0b0e13; }
+            QTabBar::tab {
+                max-height: 0px;
+                min-height: 0px;
+                padding: 0px;
+                margin: 0px;
+                border: 0px;
+                color: transparent;
+                background: transparent;
+            }
+
+            QGroupBox {
+                background: #11151c;
+                border: 1px solid #252b36;
+                border-radius: 10px;
+                margin-top: 13px;
+                padding: 17px 12px 12px 12px;
+                color: #dfe4ec;
+                font-weight: 700;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 12px;
+                padding: 0 6px;
+                color: #8f9bad;
+                background: #11151c;
+                font-size: 10px;
+                font-weight: 800;
+            }
+            QFrame#panel {
+                background: #11151c;
+                border: 1px solid #252b36;
+                border-radius: 10px;
+            }
+            QFrame#videoFrame {
+                background: #050608;
+                border: 1px solid #262d38;
+                border-radius: 10px;
+            }
+
+            QPushButton {
+                background: #1a202a;
+                color: #dce2eb;
+                border: 1px solid #2a313d;
+                border-radius: 8px;
+                padding: 8px 12px;
                 font-size: 11px;
+                font-weight: 650;
             }
-            QTabWidget::tab-bar {
-                left: 8px;
+            QPushButton:hover {
+                background: #202733;
+                border-color: #3a4556;
+                color: #ffffff;
             }
+            QPushButton:pressed { background: #161b23; }
+            QPushButton:disabled {
+                background: #12161c;
+                color: #555f6f;
+                border-color: #202631;
+            }
+            QPushButton#secondaryBtn {
+                background: #151a21;
+                color: #aeb8c7;
+                border: 1px solid #2a313c;
+            }
+            QPushButton#secondaryBtn:hover {
+                background: #1d232d;
+                color: #ffffff;
+                border-color: #3b4656;
+            }
+            QPushButton#accentBtn {
+                background: #536dff;
+                color: #ffffff;
+                border: 1px solid #667dff;
+                font-weight: 750;
+            }
+            QPushButton#accentBtn:hover { background: #6179ff; }
+            QPushButton#accentBtn:pressed { background: #475fdf; }
+
+            QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QTextEdit, QListWidget {
+                background: #0e1218;
+                color: #e9edf4;
+                border: 1px solid #29303b;
+                border-radius: 7px;
+                padding: 8px 10px;
+                font-size: 11px;
+                selection-background-color: #536dff;
+                selection-color: #ffffff;
+            }
+            QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus, QTextEdit:focus {
+                border-color: #536dff;
+                background: #10151d;
+            }
+            QComboBox::drop-down { border: none; width: 24px; }
+            QComboBox QAbstractItemView {
+                background: #121720;
+                color: #eef2f8;
+                border: 1px solid #303847;
+                selection-background-color: #536dff;
+                padding: 4px;
+            }
+            QListWidget { padding: 4px; }
+            QListWidget::item {
+                padding: 7px 8px;
+                margin: 1px 0px;
+                border-radius: 6px;
+            }
+            QListWidget::item:hover { background: #171d26; }
+            QListWidget::item:selected { background: #212939; color: #ffffff; }
+
+            QSlider::groove:horizontal {
+                height: 4px;
+                background: #262d38;
+                border-radius: 2px;
+            }
+            QSlider::sub-page:horizontal {
+                background: #536dff;
+                border-radius: 2px;
+            }
+            QSlider::handle:horizontal {
+                width: 14px;
+                height: 14px;
+                margin: -5px 0;
+                background: #f2f5fa;
+                border: 2px solid #536dff;
+                border-radius: 7px;
+            }
+            QProgressBar {
+                background: #171c24;
+                border: 1px solid #29313d;
+                border-radius: 6px;
+                min-height: 14px;
+                text-align: center;
+                color: #eef2f8;
+                font-size: 10px;
+                font-weight: 700;
+            }
+            QProgressBar::chunk {
+                background: #536dff;
+                border-radius: 5px;
+            }
+
+            QCheckBox {
+                color: #9ca7b8;
+                spacing: 7px;
+                font-size: 10px;
+            }
+            QCheckBox::indicator {
+                width: 14px;
+                height: 14px;
+                border-radius: 4px;
+                background: #11161d;
+                border: 1px solid #313947;
+            }
+            QCheckBox::indicator:checked {
+                background: #536dff;
+                border-color: #536dff;
+            }
+
+            QScrollArea { border: none; background: transparent; }
+            QScrollBar:vertical {
+                background: #0b0e13;
+                width: 9px;
+                margin: 2px;
+            }
+            QScrollBar::handle:vertical {
+                background: #2b3340;
+                min-height: 28px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical:hover { background: #3a4555; }
+            QScrollBar::add-line, QScrollBar::sub-line { height: 0px; }
+            QSplitter::handle { background: #242b35; }
+            QSplitter::handle:hover { background: #3d4756; }
+
+            QStatusBar#appStatusBar {
+                background: #0a0d12;
+                color: #667183;
+                border-top: 1px solid #202630;
+                font-size: 10px;
+            }
+            QMenu {
+                background: #131821;
+                color: #e7ebf2;
+                border: 1px solid #303847;
+                padding: 4px;
+            }
+            QMenu::item {
+                padding: 7px 22px 7px 10px;
+                border-radius: 5px;
+            }
+            QMenu::item:selected { background: #202838; }
         """)
 
     def _build_main_shell(self):
-        """Build the V4 application shell around the existing editor/downloader tabs."""
+        """Build a clean desktop-style navigation shell while keeping the existing pages."""
         shell = QWidget()
-        shell.setObjectName("appShell")
-        root = QVBoxLayout(shell)
+        root = QHBoxLayout(shell)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        header = QFrame()
-        header.setObjectName("appHeader")
-        header.setFixedHeight(64)
-        header_layout = QHBoxLayout(header)
-        header_layout.setContentsMargins(18, 8, 18, 8)
-        header_layout.setSpacing(8)
+        self.nav_panel = QFrame()
+        self.nav_panel.setObjectName("sidebar")
+        self.nav_panel.setFixedWidth(220)
+        nav = QVBoxLayout(self.nav_panel)
+        nav.setContentsMargins(14, 16, 14, 14)
+        nav.setSpacing(6)
 
         brand = QVBoxLayout()
-        brand.setSpacing(0)
-        title = QLabel("Studio Pro")
-        title.setObjectName("appTitle")
-        subtitle = QLabel("Rediger  •  Last ned  •  Render")
-        subtitle.setObjectName("appSubtitle")
-        brand.addWidget(title)
-        brand.addWidget(subtitle)
-        header_layout.addLayout(brand)
-        header_layout.addSpacing(14)
+        brand.setSpacing(1)
+        brand_title = QLabel("Studio Pro")
+        brand_title.setObjectName("brandTitle")
+        brand_tagline = QLabel("MEDIA WORKSPACE")
+        brand_tagline.setObjectName("brandTagline")
+        brand.addWidget(brand_title)
+        brand.addWidget(brand_tagline)
+        nav.addLayout(brand)
+        nav.addSpacing(22)
 
-        self.lbl_header_state = QLabel("Starter …")
+        section = QLabel("WORKSPACE")
+        section.setObjectName("sidebarSection")
+        nav.addWidget(section)
+
+        self.nav_buttons = []
+        for index, (icon, label, tip) in enumerate((
+            ("🎬", "Editor", "Klipp, juster og render"),
+            ("⬇", "Nedlaster", "Last ned og bygg en kø"),
+            ("ⓘ", "Info", "Metadata, snarveier og hjelp"),
+        )):
+            btn = QPushButton(f"{icon}  {label}")
+            btn.setObjectName("navBtn")
+            btn.setCheckable(True)
+            btn.setToolTip(tip)
+            btn.clicked.connect(lambda checked=False, i=index: self._set_active_page(i))
+            nav.addWidget(btn)
+            self.nav_buttons.append(btn)
+
+        nav.addStretch()
+
+        self.nav_open_btn = QPushButton("＋  Åpne mediefil")
+        self.nav_open_btn.setObjectName("accentBtn")
+        self.nav_open_btn.setMinimumHeight(38)
+        self.nav_open_btn.clicked.connect(self.import_file)
+        nav.addWidget(self.nav_open_btn)
+
+        footer = QLabel("Studio Pro V5  •  lokal behandling")
+        footer.setObjectName("sidebarFooter")
+        nav.addWidget(footer)
+
+        root.addWidget(self.nav_panel)
+
+        main = QWidget()
+        main_layout = QVBoxLayout(main)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+
+        self.app_header = QFrame()
+        self.app_header.setObjectName("appHeader")
+        self.app_header.setFixedHeight(72)
+        header = QHBoxLayout(self.app_header)
+        header.setContentsMargins(22, 10, 18, 10)
+        header.setSpacing(9)
+
+        page_text = QVBoxLayout()
+        page_text.setSpacing(0)
+        self.page_title = QLabel("Editor")
+        self.page_title.setObjectName("pageTitle")
+        self.page_subtitle = QLabel("Klipp, juster, marker og render")
+        self.page_subtitle.setObjectName("pageSubtitle")
+        page_text.addWidget(self.page_title)
+        page_text.addWidget(self.page_subtitle)
+        header.addLayout(page_text)
+        header.addStretch()
+
+        self.lbl_header_state = QLabel("Klar")
         self.lbl_header_state.setObjectName("headerState")
-        header_layout.addWidget(self.lbl_header_state)
-        header_layout.addStretch()
+        header.addWidget(self.lbl_header_state)
 
         self.btn_header_open = QPushButton("📁 Åpne")
         self.btn_header_open.setObjectName("headerBtn")
-        self.btn_header_open.setToolTip("Åpne mediefil (Ctrl+O)")
         self.btn_header_open.clicked.connect(self.import_file)
 
         self.btn_header_output = QPushButton("📂 Output")
         self.btn_header_output.setObjectName("headerBtn")
-        self.btn_header_output.setToolTip("Åpne output-mappen")
         self.btn_header_output.clicked.connect(self.open_download_folder)
 
-        self.btn_header_settings = QPushButton("⚙ Innstillinger")
+        self.btn_header_settings = QPushButton("⚙")
         self.btn_header_settings.setObjectName("headerBtn")
+        self.btn_header_settings.setFixedWidth(34)
+        self.btn_header_settings.setToolTip("Innstillinger")
         self.btn_header_settings.clicked.connect(self.show_settings_dialog)
 
-        self.btn_header_focus = QPushButton("🖥 Fokus")
+        self.btn_header_focus = QPushButton("⛶")
         self.btn_header_focus.setObjectName("headerBtn")
-        self.btn_header_focus.setToolTip("Fullskjerm / fokusmodus (F11)")
+        self.btn_header_focus.setFixedWidth(34)
+        self.btn_header_focus.setToolTip("Fokus / fullskjerm (F11)")
         self.btn_header_focus.clicked.connect(self.toggle_fullscreen)
 
-        for btn in (
-            self.btn_header_open,
-            self.btn_header_output,
-            self.btn_header_settings,
-            self.btn_header_focus,
-        ):
-            header_layout.addWidget(btn)
+        header.addWidget(self.btn_header_open)
+        header.addWidget(self.btn_header_output)
+        header.addWidget(self.btn_header_settings)
+        header.addWidget(self.btn_header_focus)
 
-        root.addWidget(header)
-        root.addWidget(self.tabs, 1)
+        main_layout.addWidget(self.app_header)
 
+        self.tabs.setDocumentMode(True)
+        self.tabs.tabBar().hide()
+        self.tabs.setContentsMargins(0, 0, 0, 0)
+        self.tabs.currentChanged.connect(self._update_page_header)
+        main_layout.addWidget(self.tabs, 1)
+
+        root.addWidget(main, 1)
         self.setCentralWidget(shell)
+
         status_bar = self.statusBar()
         status_bar.setObjectName("appStatusBar")
         status_bar.showMessage("Klar.")
+        self.nav_buttons[0].setChecked(True)
+
+    def _set_active_page(self, index):
+        if 0 <= index < self.tabs.count():
+            self.tabs.setCurrentIndex(index)
+
+    def _update_page_header(self, index):
+        pages = [
+            ("Editor", "Klipp, juster, marker og render"),
+            ("Nedlaster", "Last ned media og bygg en effektiv kø"),
+            ("Info", "Metadata, snarveier og systemstatus"),
+        ]
+        if 0 <= index < len(pages):
+            title, subtitle = pages[index]
+            if hasattr(self, "page_title"):
+                self.page_title.setText(title)
+                self.page_subtitle.setText(subtitle)
+            for i, btn in enumerate(getattr(self, "nav_buttons", [])):
+                btn.setChecked(i == index)
+
 
     def _set_app_status(self, message: str):
         """Keep the header status pill and status bar synchronized."""
@@ -1336,8 +1465,8 @@ class StudioProMasterSuite(QMainWindow):
     def init_editor_tab(self):
         editor_widget = QWidget()
         editor_layout = QHBoxLayout(editor_widget)
-        editor_layout.setContentsMargins(16, 16, 16, 16)
-        editor_layout.setSpacing(20)
+        editor_layout.setContentsMargins(12, 12, 12, 12)
+        editor_layout.setSpacing(12)
 
         # Splitter to allow user resizing between Sidebar and Video Viewport
         self.editor_splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -1347,8 +1476,8 @@ class StudioProMasterSuite(QMainWindow):
         self.controls_panel = QWidget()
         self.controls_panel.setObjectName("controlsPanel")
         controls_layout = QVBoxLayout(self.controls_panel)
-        controls_layout.setContentsMargins(14, 14, 14, 14)
-        controls_layout.setSpacing(14)
+        controls_layout.setContentsMargins(4, 4, 8, 4)
+        controls_layout.setSpacing(10)
 
         # File Import Section
         top_row = QHBoxLayout()
@@ -1375,7 +1504,7 @@ class StudioProMasterSuite(QMainWindow):
         
         bm_btn_row = QHBoxLayout()
         self.btn_add_bookmark = QPushButton("➕ Lagre merke")
-        self.btn_add_bookmark.setStyleSheet("background: #ec4899; color: white;")
+        self.btn_add_bookmark.setObjectName("secondaryBtn")
         self.btn_add_bookmark.clicked.connect(self.add_current_time_bookmark)
 
         self.btn_delete_bookmark = QPushButton("🗑 Slett")
@@ -1506,7 +1635,7 @@ class StudioProMasterSuite(QMainWindow):
         self.btn_render = QPushButton("⚡ Start Rendering!")
         self.btn_render.setObjectName("accentBtn")
         self.btn_render.setEnabled(False)
-        self.btn_render.setStyleSheet("padding: 14px; font-size: 15px;")
+        self.btn_render.setMinimumHeight(42)
         self.btn_render.clicked.connect(self.render_file)
         exp_box.addWidget(self.btn_render)
 
@@ -1526,7 +1655,8 @@ class StudioProMasterSuite(QMainWindow):
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.scroll_area.setWidget(self.controls_panel)
-        self.scroll_area.setMinimumWidth(360)
+        self.scroll_area.setMinimumWidth(320)
+        self.scroll_area.setMaximumWidth(420)
 
         self.editor_splitter.addWidget(self.scroll_area)
 
@@ -1539,11 +1669,8 @@ class StudioProMasterSuite(QMainWindow):
         # Video Viewport Container
         self.video_container = QWidget()
         self.video_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.video_container.setStyleSheet("""
-            background-color: #000000;
-            border-radius: 16px;
-            border: 1px solid rgba(255,255,255,0.08);
-        """)
+        self.video_container.setObjectName("videoFrame")
+        self.video_container.setStyleSheet("")
         container_layout = QVBoxLayout(self.video_container)
         container_layout.setContentsMargins(0, 0, 0, 0)
 
@@ -1681,8 +1808,8 @@ class StudioProMasterSuite(QMainWindow):
     def init_downloader_tab(self):
         dl_widget = QWidget()
         dl_layout = QVBoxLayout(dl_widget)
-        dl_layout.setContentsMargins(36, 36, 36, 36)
-        dl_layout.setSpacing(20)
+        dl_layout.setContentsMargins(20, 20, 20, 20)
+        dl_layout.setSpacing(14)
 
         title = QLabel("🌐 Media Nedlaster (YouTube, Spotify, SoundCloud, TikTok, Vimeo)")
         title.setProperty("heading", True)
@@ -1842,12 +1969,12 @@ class StudioProMasterSuite(QMainWindow):
         btn_row = QHBoxLayout()
         self.btn_download = QPushButton("📥 Start Nedlasting")
         self.btn_download.setObjectName("accentBtn")
-        self.btn_download.setStyleSheet("padding: 14px; font-size: 15px;")
+        self.btn_download.setMinimumHeight(42)
         self.btn_download.clicked.connect(self.execute_web_download)
         
         self.btn_open_in_editor = QPushButton("🎬 Åpne i Redigering")
         self.btn_open_in_editor.setObjectName("secondaryBtn")
-        self.btn_open_in_editor.setStyleSheet("padding: 14px; font-size: 15px;")
+        self.btn_open_in_editor.setMinimumHeight(42)
         self.btn_open_in_editor.setEnabled(False)
         self.btn_open_in_editor.clicked.connect(self.open_last_downloaded_in_editor)
 
@@ -1916,8 +2043,8 @@ class StudioProMasterSuite(QMainWindow):
     def init_info_tab(self):
         info_widget = QWidget()
         info_layout = QVBoxLayout(info_widget)
-        info_layout.setContentsMargins(36, 36, 36, 36)
-        info_layout.setSpacing(20)
+        info_layout.setContentsMargins(20, 20, 20, 20)
+        info_layout.setSpacing(14)
 
         title = QLabel("ℹ️ Fil-informasjon & Snarveier")
         title.setProperty("heading", True)
@@ -2379,25 +2506,30 @@ class StudioProMasterSuite(QMainWindow):
         self.is_loop_ab = state == Qt.CheckState.Checked.value
 
     def toggle_fullscreen(self):
-        """Clean fullscreen toggle with F/F11/Double click, maintaining UI state."""
+        """Distraction-free media focus mode."""
         if not self.is_fullscreen_mode:
-            self.normal_flags = self.windowFlags()
             self.normal_geometry = self.geometry()
+            if hasattr(self, "nav_panel"):
+                self.nav_panel.hide()
+            if hasattr(self, "app_header"):
+                self.app_header.hide()
             self.scroll_area.hide()
             self.trim_panel.hide()
-            self.tabs.tabBar().hide()
             self.showFullScreen()
             self.is_fullscreen_mode = True
-            self.btn_fullscreen.setText("🗗 Vindu")
+            self.btn_fullscreen.setText("⛶ Vindu")
         else:
+            self.showNormal()
+            if hasattr(self, "nav_panel"):
+                self.nav_panel.show()
+            if hasattr(self, "app_header"):
+                self.app_header.show()
             self.scroll_area.show()
             self.trim_panel.show()
-            self.tabs.tabBar().show()
-            self.showNormal()
             if self.normal_geometry:
                 self.setGeometry(self.normal_geometry)
             self.is_fullscreen_mode = False
-            self.btn_fullscreen.setText("🖥️ Fullskjerm")
+            self.btn_fullscreen.setText("⛶ Fullskjerm")
 
         QApplication.processEvents()
         self.resize_overlay()
